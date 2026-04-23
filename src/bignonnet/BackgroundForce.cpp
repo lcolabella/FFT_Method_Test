@@ -17,6 +17,9 @@ VectorField3D BackgroundForce::build(const Real3& macroscopic_gradient) const {
     f0.fill_zero();
 
     std::size_t nf = 0;
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for reduction(+:nf)
+#endif
     for (std::size_t idx = 0; idx < grid.total_size(); ++idx) {
         if (medium_->is_fluid(idx)) {
             ++nf;
@@ -31,6 +34,9 @@ VectorField3D BackgroundForce::build(const Real3& macroscopic_gradient) const {
     const double c_fluid = -1.0;
     const double c_support = -static_cast<double>(nf) / static_cast<double>(nb);
 
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for
+#endif
     for (std::size_t idx = 0; idx < grid.total_size(); ++idx) {
         if (medium_->is_fluid(idx)) {
             f0.x()[idx] += c_fluid * macroscopic_gradient[0];
@@ -39,7 +45,12 @@ VectorField3D BackgroundForce::build(const Real3& macroscopic_gradient) const {
         }
     }
 
-    for (std::size_t voxel : support_->active_voxels()) {
+    const std::vector<std::size_t>& active = support_->active_voxels();
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for
+#endif
+    for (std::size_t n = 0; n < active.size(); ++n) {
+        const std::size_t voxel = active[n];
         f0.x()[voxel] += c_support * macroscopic_gradient[0];
         f0.y()[voxel] += c_support * macroscopic_gradient[1];
         f0.z()[voxel] += c_support * macroscopic_gradient[2];

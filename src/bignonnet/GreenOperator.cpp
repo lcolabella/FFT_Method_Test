@@ -66,6 +66,9 @@ void GreenOperator::apply(const VectorField3D& force, VectorField3D& velocity_li
 
 void GreenOperator::apply_spectral_green_tensor() {
     const std::size_t n = spectral_velocity_.size();
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for
+#endif
     for (std::size_t idx = 0; idx < n; ++idx) {
         const std::complex<double> fx = spectral_force_.x()[idx];
         const std::complex<double> fy = spectral_force_.y()[idx];
@@ -86,6 +89,9 @@ void GreenOperator::precompute_energy_consistent_tensor() {
     const std::size_t ny = grid_.ny();
     const std::size_t nz = grid_.nz();
 
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for schedule(dynamic)
+#endif
     for (std::size_t idx = 0; idx < n; ++idx) {
         auto [ki, kj, kk] = grid_.unflatten(idx);
 

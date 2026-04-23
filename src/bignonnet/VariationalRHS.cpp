@@ -21,8 +21,11 @@ std::vector<double> VariationalRHS::build(const Real3& macroscopic_gradient) con
     compact_buffer_.subtract_mean();
 
     std::vector<double> b = compact_buffer_.raw();
-    for (double& v : b) {
-        v = -v;
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for
+#endif
+    for (std::size_t i = 0; i < b.size(); ++i) {
+        b[i] = -b[i];
     }
     return b;
 }

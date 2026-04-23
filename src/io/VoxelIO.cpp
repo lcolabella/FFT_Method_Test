@@ -8,7 +8,7 @@
 
 namespace permeability {
 
-BinaryMedium VoxelIO::load_text(const std::string& path) {
+BinaryMedium VoxelIO::load_text(const std::string& path, double voxel_size) {
     std::ifstream in(path);
     if (!in) {
         throw std::runtime_error("VoxelIO::load_text cannot open file: " + path);
@@ -21,7 +21,7 @@ BinaryMedium VoxelIO::load_text(const std::string& path) {
         throw std::runtime_error("VoxelIO::load_text expected first line: nx ny nz");
     }
 
-    Grid3D grid(nx, ny, nz);
+    Grid3D grid(nx, ny, nz, voxel_size, voxel_size, voxel_size);
     std::vector<unsigned char> mask(grid.total_size(), 0);
 
     for (std::size_t idx = 0; idx < grid.total_size(); ++idx) {

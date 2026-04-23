@@ -34,6 +34,9 @@ VectorField3D VelocityRecovery::recover(const Real3& macroscopic_gradient,
     const Real3 mean_b = u.mean_on_indices(support_->active_voxels());
     const Real3 v_prime{-mean_b[0], -mean_b[1], -mean_b[2]};
 
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for
+#endif
     for (std::size_t i = 0; i < u.size(); ++i) {
         u.x()[i] += v_prime[0];
         u.y()[i] += v_prime[1];

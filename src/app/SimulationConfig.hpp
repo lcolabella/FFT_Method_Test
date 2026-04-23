@@ -15,11 +15,14 @@ struct SimulationConfig {
     GreenDiscretization green{};
 
     double mu{1.0};
+    double voxel_size{1.0};
     double tolerance{1e-10};
     std::size_t max_iterations{400};
     int p_radius{2};
 
     int fft_threads{1};
+    int omp_threads{0};
+    bool parallel_load_cases{false};
 
     static SimulationConfig from_cli(int argc, char** argv);
 };

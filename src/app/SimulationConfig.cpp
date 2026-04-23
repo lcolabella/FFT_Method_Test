@@ -38,12 +38,16 @@ SimulationConfig SimulationConfig::from_cli(int argc, char** argv) {
             }
         } else if (is_flag(argv[i], "--mu")) {
             cfg.mu = std::stod(require_value(argc, argv, i, "--mu"));
+        } else if (is_flag(argv[i], "--voxel-size")) {
+            cfg.voxel_size = std::stod(require_value(argc, argv, i, "--voxel-size"));
         } else if (is_flag(argv[i], "--tol")) {
             cfg.tolerance = std::stod(require_value(argc, argv, i, "--tol"));
         } else if (is_flag(argv[i], "--maxit")) {
             cfg.max_iterations = static_cast<std::size_t>(std::stoull(require_value(argc, argv, i, "--maxit")));
         } else if (is_flag(argv[i], "--threads")) {
             cfg.fft_threads = std::stoi(require_value(argc, argv, i, "--threads"));
+        } else if (is_flag(argv[i], "--omp-threads")) {
+            cfg.omp_threads = std::stoi(require_value(argc, argv, i, "--omp-threads"));
         } else if (is_flag(argv[i], "--p-radius")) {
             cfg.p_radius = std::stoi(require_value(argc, argv, i, "--p-radius"));
         } else if (is_flag(argv[i], "--gradient")) {
@@ -59,6 +63,8 @@ SimulationConfig SimulationConfig::from_cli(int argc, char** argv) {
             } else {
                 throw std::invalid_argument("Invalid --gradient value. Use x|y|z|all");
             }
+        } else if (is_flag(argv[i], "--parallel-load-cases")) {
+            cfg.parallel_load_cases = true;
         } else {
             throw std::invalid_argument(std::string("Unknown CLI option: ") + argv[i]);
         }
@@ -66,6 +72,9 @@ SimulationConfig SimulationConfig::from_cli(int argc, char** argv) {
 
     if (cfg.mu <= 0.0) {
         throw std::invalid_argument("--mu must be positive");
+    }
+    if (cfg.voxel_size <= 0.0) {
+        throw std::invalid_argument("--voxel-size must be > 0");
     }
     if (cfg.tolerance <= 0.0) {
         throw std::invalid_argument("--tol must be positive");
@@ -75,6 +84,9 @@ SimulationConfig SimulationConfig::from_cli(int argc, char** argv) {
     }
     if (cfg.fft_threads <= 0) {
         throw std::invalid_argument("--threads must be >= 1");
+    }
+    if (cfg.omp_threads < 0) {
+        throw std::invalid_argument("--omp-threads must be >= 0");
     }
     if (cfg.p_radius < 0) {
         throw std::invalid_argument("--p-radius must be >= 0");

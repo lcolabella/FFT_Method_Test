@@ -44,15 +44,22 @@ Real3 TrialForceField::mean_vector() const {
     if (nb_ == 0) {
         return m;
     }
+
+    double sx = 0.0;
+    double sy = 0.0;
+    double sz = 0.0;
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for reduction(+:sx,sy,sz)
+#endif
     for (std::size_t n = 0; n < nb_; ++n) {
-        m[0] += x(n);
-        m[1] += y(n);
-        m[2] += z(n);
+        sx += values_[3 * n + 0];
+        sy += values_[3 * n + 1];
+        sz += values_[3 * n + 2];
     }
     const double inv = 1.0 / static_cast<double>(nb_);
-    m[0] *= inv;
-    m[1] *= inv;
-    m[2] *= inv;
+    m[0] = sx * inv;
+    m[1] = sy * inv;
+    m[2] = sz * inv;
     return m;
 }
 
@@ -62,17 +69,23 @@ void TrialForceField::subtract_mean() {
     }
 
     const Real3 m = mean_vector();
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for
+#endif
     for (std::size_t n = 0; n < nb_; ++n) {
-        x(n) -= m[0];
-        y(n) -= m[1];
-        z(n) -= m[2];
+        values_[3 * n + 0] -= m[0];
+        values_[3 * n + 1] -= m[1];
+        values_[3 * n + 2] -= m[2];
     }
 }
 
 double TrialForceField::norm2() const {
     double s = 0.0;
-    for (double v : values_) {
-        s += v * v;
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for reduction(+:s)
+#endif
+    for (std::size_t i = 0; i < values_.size(); ++i) {
+        s += values_[i] * values_[i];
     }
     return std::sqrt(s);
 }
@@ -85,11 +98,14 @@ void TrialForceField::scatter_to_full(VectorField3D& out_full, const ForceSuppor
     if (support.num_active_voxels() != nb_) {
         throw std::invalid_argument("TrialForceField::scatter_to_full support size mismatch");
     }
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for
+#endif
     for (std::size_t n = 0; n < nb_; ++n) {
         const std::size_t voxel = support.global_index(n);
-        out_full.x()[voxel] = x(n);
-        out_full.y()[voxel] = y(n);
-        out_full.z()[voxel] = z(n);
+        out_full.x()[voxel] = values_[3 * n + 0];
+        out_full.y()[voxel] = values_[3 * n + 1];
+        out_full.z()[voxel] = values_[3 * n + 2];
     }
 }
 
@@ -97,11 +113,14 @@ void TrialForceField::gather_from_full(const VectorField3D& in_full, const Force
     if (support.num_active_voxels() != nb_) {
         throw std::invalid_argument("TrialForceField::gather_from_full support size mismatch");
     }
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for
+#endif
     for (std::size_t n = 0; n < nb_; ++n) {
         const std::size_t voxel = support.global_index(n);
-        x(n) = in_full.x()[voxel];
-        y(n) = in_full.y()[voxel];
-        z(n) = in_full.z()[voxel];
+        values_[3 * n + 0] = in_full.x()[voxel];
+        values_[3 * n + 1] = in_full.y()[voxel];
+        values_[3 * n + 2] = in_full.z()[voxel];
     }
 }
 

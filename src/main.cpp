@@ -12,8 +12,8 @@ int main(int argc, char** argv) {
     } catch (const std::exception& ex) {
         std::cerr << "Fatal error: " << ex.what() << "\n";
         std::cerr << "Usage: fft_method --input <path> [--support interface|fullsolid] [--mu <value>] "
-                  << "[--tol <value>] [--maxit <value>] [--threads <value>] [--p-radius <value>] "
-                  << "[--gradient x|y|z|all]\n";
+                  << "[--voxel-size <value>] [--tol <value>] [--maxit <value>] [--threads <value>] [--omp-threads <value>] [--p-radius <value>] "
+                  << "[--gradient x|y|z|all] [--parallel-load-cases]\n";
         return 1;
     }
 }

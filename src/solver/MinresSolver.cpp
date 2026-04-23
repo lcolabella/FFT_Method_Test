@@ -12,6 +12,9 @@ namespace {
 
 double dot(const std::vector<double>& a, const std::vector<double>& b) {
     double s = 0.0;
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for reduction(+:s)
+#endif
     for (std::size_t i = 0; i < a.size(); ++i) {
         s += a[i] * b[i];
     }
@@ -23,6 +26,9 @@ double norm2(const std::vector<double>& v) {
 }
 
 void axpy(double a, const std::vector<double>& x, std::vector<double>& y) {
+#ifdef PERMEABILITY_USE_OPENMP
+#pragma omp parallel for
+#endif
     for (std::size_t i = 0; i < y.size(); ++i) {
         y[i] += a * x[i];
     }
@@ -101,7 +107,6 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
     std::fill(w.begin(), w.end(), 0.0);
     std::fill(w_next.begin(), w_next.end(), 0.0);
 
-    double beta_old = 0.0;
     double beta = beta1;
 
     double cs_old = -1.0;
@@ -140,9 +145,9 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
 
         // 6) Apply old/current Givens.
         const double eps = sn_old * beta;
-        const double delta_raw = cs_old * beta;
-        const double delta = cs * delta_raw + sn * alpha;
-        const double phi = sn * delta - cs * alpha;
+        const double delta_raw = -cs_old * beta;               // dbar in Paige-Saunders
+        const double delta     = cs * delta_raw + sn * alpha;  // off-diagonal entry of R
+        const double phi       = sn * delta_raw - cs * alpha;  // epln_bar: pre-rotation diagonal
 
         // 7) New Givens to eliminate beta_new.
         const double rho = std::hypot(phi, beta_new);
@@ -176,7 +181,6 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
         sn_old = sn;
         cs = cs_new;
         sn = sn_new;
-        beta_old = beta;
         beta = beta_new;
 
         // 12) Relative residual estimate.
@@ -196,7 +200,6 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
             break;
         }
 
-        (void)beta_old;
     }
 
     if (!result.converged) {
