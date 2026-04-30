@@ -8,13 +8,13 @@
 #include <utility>
 #include <vector>
 
-#if defined(PERMEABILITY_HAVE_FFTW3)
+#if defined(PERMEABILITY_HAVE_FFTW3F) || defined(PERMEABILITY_HAVE_FFTW3)
 #include <fftw3.h>
 #endif
 
 namespace permeability {
 
-#if defined(PERMEABILITY_HAVE_FFTW3)
+#if defined(PERMEABILITY_HAVE_FFTW3F) || defined(PERMEABILITY_HAVE_FFTW3)
 namespace {
 
 std::mutex& fftw_planner_mutex() {
@@ -31,7 +31,16 @@ struct FFTWBackend::Impl {
     bool initialized = false;
     double inv_n = 1.0;
 
-#if defined(PERMEABILITY_HAVE_FFTW3)
+#if defined(PERMEABILITY_HAVE_FFTW3F)
+    // For fftwf backend: buffers are always complex<float>
+    // (even if Scalar=double, we convert at boundaries)
+    std::vector<std::complex<float>> in;
+    std::vector<std::complex<float>> out;
+    fftwf_plan forward_plan = nullptr;
+    fftwf_plan inverse_plan = nullptr;
+#elif defined(PERMEABILITY_HAVE_FFTW3)
+    // For fftw backend: buffers are always complex<double>
+    // (even if Scalar=float, we convert at boundaries)
     std::vector<std::complex<double>> in;
     std::vector<std::complex<double>> out;
     fftw_plan forward_plan = nullptr;
@@ -39,7 +48,17 @@ struct FFTWBackend::Impl {
 #endif
 
     ~Impl() {
-#if defined(PERMEABILITY_HAVE_FFTW3)
+#if defined(PERMEABILITY_HAVE_FFTW3F)
+        std::lock_guard<std::mutex> lock(fftw_planner_mutex());
+        if (forward_plan != nullptr) {
+            fftwf_destroy_plan(forward_plan);
+            forward_plan = nullptr;
+        }
+        if (inverse_plan != nullptr) {
+            fftwf_destroy_plan(inverse_plan);
+            inverse_plan = nullptr;
+        }
+#elif defined(PERMEABILITY_HAVE_FFTW3)
         std::lock_guard<std::mutex> lock(fftw_planner_mutex());
         if (forward_plan != nullptr) {
             fftw_destroy_plan(forward_plan);
@@ -53,7 +72,7 @@ struct FFTWBackend::Impl {
     }
 };
 
-#if defined(PERMEABILITY_HAVE_FFTW3)
+#if defined(PERMEABILITY_HAVE_FFTW3F) || defined(PERMEABILITY_HAVE_FFTW3)
 namespace {
 std::mutex g_fftw_init_mutex;
 bool g_fftw_threads_initialized = false;
@@ -70,7 +89,60 @@ void FFTWBackend::initialize(const Grid3D& grid, int thread_count) {
     impl_->threads = std::max(1, thread_count);
     impl_->inv_n = 1.0 / static_cast<double>(grid.total_size());
 
-#if defined(PERMEABILITY_HAVE_FFTW3)
+#if defined(PERMEABILITY_HAVE_FFTW3F)
+    {
+        std::lock_guard<std::mutex> lock(g_fftw_init_mutex);
+        if (!g_fftw_threads_initialized) {
+            if (fftwf_init_threads() == 0) {
+                throw std::runtime_error("fftwf_init_threads failed");
+            }
+            g_fftw_threads_initialized = true;
+        }
+    }
+
+    const std::size_t n = grid.total_size();
+    impl_->in.assign(n, std::complex<float>(0.0f, 0.0f));
+    impl_->out.assign(n, std::complex<float>(0.0f, 0.0f));
+
+    {
+        // FFTW planning API is not thread-safe; serialize plan create/destroy.
+        std::lock_guard<std::mutex> lock(fftw_planner_mutex());
+
+        fftwf_plan_with_nthreads(impl_->threads);
+
+        if (impl_->forward_plan != nullptr) {
+            fftwf_destroy_plan(impl_->forward_plan);
+            impl_->forward_plan = nullptr;
+        }
+        if (impl_->inverse_plan != nullptr) {
+            fftwf_destroy_plan(impl_->inverse_plan);
+            impl_->inverse_plan = nullptr;
+        }
+
+        // Plans are created once, outside apply paths.
+        impl_->forward_plan = fftwf_plan_dft_3d(
+            static_cast<int>(grid.nz()),
+            static_cast<int>(grid.ny()),
+            static_cast<int>(grid.nx()),
+            reinterpret_cast<fftwf_complex*>(impl_->in.data()),
+            reinterpret_cast<fftwf_complex*>(impl_->out.data()),
+            FFTW_FORWARD,
+            FFTW_MEASURE);
+
+        impl_->inverse_plan = fftwf_plan_dft_3d(
+            static_cast<int>(grid.nz()),
+            static_cast<int>(grid.ny()),
+            static_cast<int>(grid.nx()),
+            reinterpret_cast<fftwf_complex*>(impl_->in.data()),
+            reinterpret_cast<fftwf_complex*>(impl_->out.data()),
+            FFTW_BACKWARD,
+            FFTW_MEASURE);
+    }
+
+    if (impl_->forward_plan == nullptr || impl_->inverse_plan == nullptr) {
+        throw std::runtime_error("FFTW plan creation failed");
+    }
+#elif defined(PERMEABILITY_HAVE_FFTW3)
     {
         std::lock_guard<std::mutex> lock(g_fftw_init_mutex);
         if (!g_fftw_threads_initialized) {
@@ -138,21 +210,44 @@ void FFTWBackend::forward(const VectorField3D& real_in,
         throw std::invalid_argument("FFTWBackend::forward grid size mismatch");
     }
 
-#if defined(PERMEABILITY_HAVE_FFTW3)
+#if defined(PERMEABILITY_HAVE_FFTW3F)
     const std::size_t n = real_in.size();
-    auto run_component = [&](const ScalarField3D& src, Array3D<std::complex<double>>& dst) {
+    auto run_component = [&](const ScalarField3D& src, Array3D<ScalarComplex>& dst) {
 #if defined(PERMEABILITY_USE_OPENMP)
 #pragma omp parallel for
 #endif
         for (std::size_t i = 0; i < n; ++i) {
-            impl_->in[i] = {src[i], 0.0};
+            impl_->in[i] = std::complex<float>(static_cast<float>(src[i]), 0.0f);
+        }
+        fftwf_execute(impl_->forward_plan);
+#if defined(PERMEABILITY_USE_OPENMP)
+#pragma omp parallel for
+#endif
+        for (std::size_t i = 0; i < n; ++i) {
+            dst[i] = ScalarComplex(static_cast<Scalar>(impl_->out[i].real()),
+                                   static_cast<Scalar>(impl_->out[i].imag()));
+        }
+    };
+
+    run_component(real_in.x(), complex_out.x());
+    run_component(real_in.y(), complex_out.y());
+    run_component(real_in.z(), complex_out.z());
+#elif defined(PERMEABILITY_HAVE_FFTW3)
+    const std::size_t n = real_in.size();
+    auto run_component = [&](const ScalarField3D& src, Array3D<ScalarComplex>& dst) {
+#if defined(PERMEABILITY_USE_OPENMP)
+#pragma omp parallel for
+#endif
+        for (std::size_t i = 0; i < n; ++i) {
+            impl_->in[i] = {static_cast<double>(src[i]), 0.0};
         }
         fftw_execute(impl_->forward_plan);
 #if defined(PERMEABILITY_USE_OPENMP)
 #pragma omp parallel for
 #endif
         for (std::size_t i = 0; i < n; ++i) {
-            dst[i] = impl_->out[i];
+            dst[i] = ScalarComplex(static_cast<Scalar>(impl_->out[i].real()),
+                                   static_cast<Scalar>(impl_->out[i].imag()));
         }
     };
 
@@ -161,9 +256,9 @@ void FFTWBackend::forward(const VectorField3D& real_in,
     run_component(real_in.z(), complex_out.z());
 #else
     for (std::size_t i = 0; i < real_in.size(); ++i) {
-        complex_out.x()[i] = {real_in.x()[i], 0.0};
-        complex_out.y()[i] = {real_in.y()[i], 0.0};
-        complex_out.z()[i] = {real_in.z()[i], 0.0};
+        complex_out.x()[i] = ScalarComplex{real_in.x()[i], Scalar(0)};
+        complex_out.y()[i] = ScalarComplex{real_in.y()[i], Scalar(0)};
+        complex_out.z()[i] = ScalarComplex{real_in.z()[i], Scalar(0)};
     }
 #endif
 }
@@ -178,14 +273,38 @@ void FFTWBackend::inverse(const ComplexVectorField3D& complex_in,
         throw std::invalid_argument("FFTWBackend::inverse grid size mismatch");
     }
 
-#if defined(PERMEABILITY_HAVE_FFTW3)
+#if defined(PERMEABILITY_HAVE_FFTW3F)
     const std::size_t n = real_out.size();
-    auto run_component = [&](const Array3D<std::complex<double>>& src, ScalarField3D& dst) {
+    auto run_component = [&](const Array3D<ScalarComplex>& src, ScalarField3D& dst) {
 #if defined(PERMEABILITY_USE_OPENMP)
 #pragma omp parallel for
 #endif
         for (std::size_t i = 0; i < n; ++i) {
-            impl_->in[i] = src[i];
+            impl_->in[i] = std::complex<float>(static_cast<float>(src[i].real()),
+                                               static_cast<float>(src[i].imag()));
+        }
+        fftwf_execute(impl_->inverse_plan);
+#if defined(PERMEABILITY_USE_OPENMP)
+#pragma omp parallel for
+#endif
+        for (std::size_t i = 0; i < n; ++i) {
+            // FFTW does not normalize inverse transforms; apply explicit 1/N.
+            dst[i] = static_cast<Scalar>(impl_->out[i].real() * impl_->inv_n);
+        }
+    };
+
+    run_component(complex_in.x(), real_out.x());
+    run_component(complex_in.y(), real_out.y());
+    run_component(complex_in.z(), real_out.z());
+#elif defined(PERMEABILITY_HAVE_FFTW3)
+    const std::size_t n = real_out.size();
+    auto run_component = [&](const Array3D<ScalarComplex>& src, ScalarField3D& dst) {
+#if defined(PERMEABILITY_USE_OPENMP)
+#pragma omp parallel for
+#endif
+        for (std::size_t i = 0; i < n; ++i) {
+            impl_->in[i] = {static_cast<double>(src[i].real()),
+                            static_cast<double>(src[i].imag())};
         }
         fftw_execute(impl_->inverse_plan);
 #if defined(PERMEABILITY_USE_OPENMP)
@@ -193,7 +312,7 @@ void FFTWBackend::inverse(const ComplexVectorField3D& complex_in,
 #endif
         for (std::size_t i = 0; i < n; ++i) {
             // FFTW does not normalize inverse transforms; apply explicit 1/N.
-            dst[i] = impl_->out[i].real() * impl_->inv_n;
+            dst[i] = static_cast<Scalar>(impl_->out[i].real() * impl_->inv_n);
         }
     };
 

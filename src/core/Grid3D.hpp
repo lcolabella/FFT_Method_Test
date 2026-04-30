@@ -5,18 +5,20 @@
 #include <stdexcept>
 #include <tuple>
 
+#include "core/Types.hpp"
+
 namespace permeability {
 
 class Grid3D {
 public:
     Grid3D(std::size_t nx, std::size_t ny, std::size_t nz,
-           double hx = 1.0, double hy = 1.0, double hz = 1.0,
-           double lx = 0.0, double ly = 0.0, double lz = 0.0)
+           Scalar hx = Scalar(1), Scalar hy = Scalar(1), Scalar hz = Scalar(1),
+           Scalar lx = Scalar(0), Scalar ly = Scalar(0), Scalar lz = Scalar(0))
         : nx_(nx), ny_(ny), nz_(nz),
           hx_(hx), hy_(hy), hz_(hz),
-          lx_(lx > 0.0 ? lx : hx * static_cast<double>(nx)),
-          ly_(ly > 0.0 ? ly : hy * static_cast<double>(ny)),
-          lz_(lz > 0.0 ? lz : hz * static_cast<double>(nz)) {
+          lx_(lx > Scalar(0) ? lx : hx * static_cast<Scalar>(nx)),
+          ly_(ly > Scalar(0) ? ly : hy * static_cast<Scalar>(ny)),
+          lz_(lz > Scalar(0) ? lz : hz * static_cast<Scalar>(nz)) {
         if (nx_ == 0 || ny_ == 0 || nz_ == 0) {
             throw std::invalid_argument("Grid dimensions must be positive");
         }
@@ -26,13 +28,13 @@ public:
     [[nodiscard]] std::size_t ny() const noexcept { return ny_; }
     [[nodiscard]] std::size_t nz() const noexcept { return nz_; }
 
-    [[nodiscard]] double hx() const noexcept { return hx_; }
-    [[nodiscard]] double hy() const noexcept { return hy_; }
-    [[nodiscard]] double hz() const noexcept { return hz_; }
+    [[nodiscard]] Scalar hx() const noexcept { return hx_; }
+    [[nodiscard]] Scalar hy() const noexcept { return hy_; }
+    [[nodiscard]] Scalar hz() const noexcept { return hz_; }
 
-    [[nodiscard]] double lx() const noexcept { return lx_; }
-    [[nodiscard]] double ly() const noexcept { return ly_; }
-    [[nodiscard]] double lz() const noexcept { return lz_; }
+    [[nodiscard]] Scalar lx() const noexcept { return lx_; }
+    [[nodiscard]] Scalar ly() const noexcept { return ly_; }
+    [[nodiscard]] Scalar lz() const noexcept { return lz_; }
 
     [[nodiscard]] std::size_t total_size() const noexcept { return nx_ * ny_ * nz_; }
 
@@ -93,12 +95,12 @@ private:
     std::size_t nx_;
     std::size_t ny_;
     std::size_t nz_;
-    double hx_;
-    double hy_;
-    double hz_;
-    double lx_;
-    double ly_;
-    double lz_;
+    Scalar hx_;
+    Scalar hy_;
+    Scalar hz_;
+    Scalar lx_;
+    Scalar ly_;
+    Scalar lz_;
 };
 
 }  // namespace permeability

@@ -1,4 +1,4 @@
-#include "common/FFT.hpp"
+#include "brinkman/FFT.hpp"
 
 #include <cmath>
 #include <cstddef>

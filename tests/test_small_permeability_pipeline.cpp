@@ -37,7 +37,7 @@ int main() {
     permeability::VelocityRecovery recovery(support, green, bg);
 
     const permeability::Real3 g{1.0, 0.0, 0.0};
-    const std::vector<double> b = rhs_builder.build(g);
+    const std::vector<permeability::Scalar> b = rhs_builder.build(g);
     const permeability::SolverResult sr = solver.solve(op, b);
 
     assert(sr.solution.size() == op.size());
@@ -51,7 +51,7 @@ int main() {
     K.set_column(0, avg);
 
     const auto data = K.data();
-    for (double e : data) {
+    for (auto e : data) {
         assert(std::isfinite(e));
     }
 

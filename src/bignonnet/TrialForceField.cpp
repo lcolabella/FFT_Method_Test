@@ -16,14 +16,14 @@ void check_comp(std::size_t comp) {
 TrialForceField::TrialForceField(std::size_t num_active_voxels)
     : nb_(num_active_voxels), values_(3 * num_active_voxels, 0.0) {}
 
-double& TrialForceField::x(std::size_t local) { return (*this)(local, 0); }
-double& TrialForceField::y(std::size_t local) { return (*this)(local, 1); }
-double& TrialForceField::z(std::size_t local) { return (*this)(local, 2); }
-const double& TrialForceField::x(std::size_t local) const { return (*this)(local, 0); }
-const double& TrialForceField::y(std::size_t local) const { return (*this)(local, 1); }
-const double& TrialForceField::z(std::size_t local) const { return (*this)(local, 2); }
+Scalar& TrialForceField::x(std::size_t local) { return (*this)(local, 0); }
+Scalar& TrialForceField::y(std::size_t local) { return (*this)(local, 1); }
+Scalar& TrialForceField::z(std::size_t local) { return (*this)(local, 2); }
+const Scalar& TrialForceField::x(std::size_t local) const { return (*this)(local, 0); }
+const Scalar& TrialForceField::y(std::size_t local) const { return (*this)(local, 1); }
+const Scalar& TrialForceField::z(std::size_t local) const { return (*this)(local, 2); }
 
-double& TrialForceField::operator()(std::size_t local, std::size_t comp) {
+Scalar& TrialForceField::operator()(std::size_t local, std::size_t comp) {
     check_comp(comp);
     if (local >= nb_) {
         throw std::out_of_range("TrialForceField local index out of range");
@@ -31,7 +31,7 @@ double& TrialForceField::operator()(std::size_t local, std::size_t comp) {
     return values_[3 * local + comp];
 }
 
-const double& TrialForceField::operator()(std::size_t local, std::size_t comp) const {
+const Scalar& TrialForceField::operator()(std::size_t local, std::size_t comp) const {
     check_comp(comp);
     if (local >= nb_) {
         throw std::out_of_range("TrialForceField local index out of range");
@@ -45,9 +45,9 @@ Real3 TrialForceField::mean_vector() const {
         return m;
     }
 
-    double sx = 0.0;
-    double sy = 0.0;
-    double sz = 0.0;
+    Scalar sx = Scalar(0);
+    Scalar sy = Scalar(0);
+    Scalar sz = Scalar(0);
 #ifdef PERMEABILITY_USE_OPENMP
 #pragma omp parallel for reduction(+:sx,sy,sz)
 #endif
@@ -56,7 +56,7 @@ Real3 TrialForceField::mean_vector() const {
         sy += values_[3 * n + 1];
         sz += values_[3 * n + 2];
     }
-    const double inv = 1.0 / static_cast<double>(nb_);
+    const Scalar inv = Scalar(1) / static_cast<Scalar>(nb_);
     m[0] = sx * inv;
     m[1] = sy * inv;
     m[2] = sz * inv;
@@ -79,8 +79,8 @@ void TrialForceField::subtract_mean() {
     }
 }
 
-double TrialForceField::norm2() const {
-    double s = 0.0;
+Scalar TrialForceField::norm2() const {
+    Scalar s = Scalar(0);
 #ifdef PERMEABILITY_USE_OPENMP
 #pragma omp parallel for reduction(+:s)
 #endif

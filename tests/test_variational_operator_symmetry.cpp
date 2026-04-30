@@ -8,6 +8,7 @@
 #include "bignonnet/GreenDiscretization.hpp"
 #include "bignonnet/GreenOperator.hpp"
 #include "bignonnet/VariationalOperator.hpp"
+#include "core/Types.hpp"
 #include "fft/FFTWBackend.hpp"
 #include "geometry/BinaryMedium.hpp"
 
@@ -28,19 +29,19 @@ int main() {
     permeability::VariationalOperator op(support, green);
 
     std::mt19937_64 rng(42);
-    std::uniform_real_distribution<double> dist(-1.0, 1.0);
+    std::uniform_real_distribution<permeability::Scalar> dist(-1.0, 1.0);
 
-    std::vector<double> x(op.size(), 0.0);
-    std::vector<double> y(op.size(), 0.0);
-    for (double& v : x) {
+    std::vector<permeability::Scalar> x(op.size(), permeability::Scalar(0));
+    std::vector<permeability::Scalar> y(op.size(), permeability::Scalar(0));
+    for (permeability::Scalar& v : x) {
         v = dist(rng);
     }
-    for (double& v : y) {
+    for (permeability::Scalar& v : y) {
         v = dist(rng);
     }
 
-    std::vector<double> ax(op.size(), 0.0);
-    std::vector<double> ay(op.size(), 0.0);
+    std::vector<permeability::Scalar> ax(op.size(), permeability::Scalar(0));
+    std::vector<permeability::Scalar> ay(op.size(), permeability::Scalar(0));
     op.apply(x, ax);
     op.apply(y, ay);
 
@@ -57,7 +58,7 @@ int main() {
 
     const double denom = std::max({1.0, std::abs(x_ay), std::abs(ax_y), std::sqrt(nx * ny)});
     const double rel_gap = std::abs(x_ay - ax_y) / denom;
-    assert(rel_gap < 5e-7);
+    assert(rel_gap < 1e-4);
 
     return 0;
 }

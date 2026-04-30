@@ -10,7 +10,7 @@ VelocityRecovery::VelocityRecovery(const ForceSupport& support,
     : support_(&support), green_(&green), background_force_(&background_force) {}
 
 VectorField3D VelocityRecovery::recover(const Real3& macroscopic_gradient,
-                                        const std::vector<double>& compact_solution) const {
+                                        const std::vector<Scalar>& compact_solution) const {
     if (compact_solution.size() != 3 * support_->num_active_voxels()) {
         throw std::invalid_argument("VelocityRecovery::recover compact solution size mismatch");
     }

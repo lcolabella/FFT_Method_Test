@@ -10,7 +10,7 @@ WaveVectorGrid::WaveVectorGrid(Grid3D grid)
       ky_(grid_.total_size(), 0.0),
       kz_(grid_.total_size(), 0.0),
       norm2_(grid_.total_size(), 0.0) {
-    const double two_pi = 2.0 * 3.14159265358979323846;
+    const Scalar two_pi = Scalar(2) * Scalar(3.14159265358979323846);
 
     for (std::size_t idx = 0; idx < grid_.total_size(); ++idx) {
         auto [i, j, k] = grid_.unflatten(idx);
@@ -22,9 +22,9 @@ WaveVectorGrid::WaveVectorGrid(Grid3D grid)
         const long long kk = (2 * k <= grid_.nz()) ? static_cast<long long>(k)
                                                    : static_cast<long long>(k) - static_cast<long long>(grid_.nz());
 
-        kx_[idx] = two_pi * static_cast<double>(ii) / grid_.lx();
-        ky_[idx] = two_pi * static_cast<double>(jj) / grid_.ly();
-        kz_[idx] = two_pi * static_cast<double>(kk) / grid_.lz();
+        kx_[idx] = two_pi * static_cast<Scalar>(ii) / grid_.lx();
+        ky_[idx] = two_pi * static_cast<Scalar>(jj) / grid_.ly();
+        kz_[idx] = two_pi * static_cast<Scalar>(kk) / grid_.lz();
         norm2_[idx] = kx_[idx] * kx_[idx] + ky_[idx] * ky_[idx] + kz_[idx] * kz_[idx];
     }
 }

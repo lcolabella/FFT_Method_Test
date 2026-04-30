@@ -10,23 +10,23 @@ namespace {
 
 constexpr double kPi = 3.14159265358979323846;
 
-double sinc(double x) {
-    const double ax = std::abs(x);
-    if (ax < 1e-12) {
-        return 1.0;
+Scalar sinc(Scalar x) {
+    const Scalar ax = std::abs(x);
+    if (ax < Scalar(1e-12)) {
+        return Scalar(1);
     }
     return std::sin(x) / x;
 }
 
-double q_component(long long m, double period_length) {
-    return (2.0 * kPi * static_cast<double>(m)) / period_length;
+Scalar q_component(long long m, Scalar period_length) {
+    return (Scalar(2) * Scalar(kPi) * static_cast<Scalar>(m)) / period_length;
 }
 
 }  // namespace
 
 GreenOperator::GreenOperator(const Grid3D& grid,
                              GreenDiscretization discretization,
-                             double viscosity,
+                             Scalar viscosity,
                              IFFTBackend& fft_backend,
                              int fft_threads,
                              int p_radius)
@@ -38,13 +38,13 @@ GreenOperator::GreenOperator(const Grid3D& grid,
       wave_vectors_(grid),
       spectral_force_(grid),
       spectral_velocity_(grid),
-      spectral_tensor_xx_(grid.total_size(), 0.0),
-      spectral_tensor_xy_(grid.total_size(), 0.0),
-      spectral_tensor_xz_(grid.total_size(), 0.0),
-      spectral_tensor_yy_(grid.total_size(), 0.0),
-      spectral_tensor_yz_(grid.total_size(), 0.0),
-      spectral_tensor_zz_(grid.total_size(), 0.0) {
-    if (viscosity_ <= 0.0) {
+      spectral_tensor_xx_(grid.total_size(), Scalar(0)),
+      spectral_tensor_xy_(grid.total_size(), Scalar(0)),
+      spectral_tensor_xz_(grid.total_size(), Scalar(0)),
+      spectral_tensor_yy_(grid.total_size(), Scalar(0)),
+      spectral_tensor_yz_(grid.total_size(), Scalar(0)),
+      spectral_tensor_zz_(grid.total_size(), Scalar(0)) {
+    if (viscosity_ <= Scalar(0)) {
         throw std::invalid_argument("GreenOperator viscosity must be positive");
     }
     fft_->initialize(grid_, fft_threads);
@@ -65,14 +65,26 @@ void GreenOperator::apply(const VectorField3D& force, VectorField3D& velocity_li
 }
 
 void GreenOperator::apply_spectral_green_tensor() {
+    if (fft_->apply_spectral_green_tensor(
+            spectral_tensor_xx_,
+            spectral_tensor_xy_,
+            spectral_tensor_xz_,
+            spectral_tensor_yy_,
+            spectral_tensor_yz_,
+            spectral_tensor_zz_,
+            spectral_force_,
+            spectral_velocity_)) {
+        return;
+    }
+
     const std::size_t n = spectral_velocity_.size();
 #ifdef PERMEABILITY_USE_OPENMP
 #pragma omp parallel for
 #endif
     for (std::size_t idx = 0; idx < n; ++idx) {
-        const std::complex<double> fx = spectral_force_.x()[idx];
-        const std::complex<double> fy = spectral_force_.y()[idx];
-        const std::complex<double> fz = spectral_force_.z()[idx];
+        const ScalarComplex fx = spectral_force_.x()[idx];
+        const ScalarComplex fy = spectral_force_.y()[idx];
+        const ScalarComplex fz = spectral_force_.z()[idx];
 
         spectral_velocity_.x()[idx] = spectral_tensor_xx_[idx] * fx + spectral_tensor_xy_[idx] * fy + spectral_tensor_xz_[idx] * fz;
         spectral_velocity_.y()[idx] = spectral_tensor_xy_[idx] * fx + spectral_tensor_yy_[idx] * fy + spectral_tensor_yz_[idx] * fz;
@@ -96,21 +108,21 @@ void GreenOperator::precompute_energy_consistent_tensor() {
         auto [ki, kj, kk] = grid_.unflatten(idx);
 
         if (ki == 0 && kj == 0 && kk == 0) {
-            spectral_tensor_xx_[idx] = 0.0;
-            spectral_tensor_xy_[idx] = 0.0;
-            spectral_tensor_xz_[idx] = 0.0;
-            spectral_tensor_yy_[idx] = 0.0;
-            spectral_tensor_yz_[idx] = 0.0;
-            spectral_tensor_zz_[idx] = 0.0;
+            spectral_tensor_xx_[idx] = Scalar(0);
+            spectral_tensor_xy_[idx] = Scalar(0);
+            spectral_tensor_xz_[idx] = Scalar(0);
+            spectral_tensor_yy_[idx] = Scalar(0);
+            spectral_tensor_yz_[idx] = Scalar(0);
+            spectral_tensor_zz_[idx] = Scalar(0);
             continue;
         }
 
-        double gxx = 0.0;
-        double gxy = 0.0;
-        double gxz = 0.0;
-        double gyy = 0.0;
-        double gyz = 0.0;
-        double gzz = 0.0;
+        Scalar gxx = Scalar(0);
+        Scalar gxy = Scalar(0);
+        Scalar gxz = Scalar(0);
+        Scalar gyy = Scalar(0);
+        Scalar gyz = Scalar(0);
+        Scalar gzz = Scalar(0);
 
         for (int px = -p_radius_; px <= p_radius_; ++px) {
             for (int py = -p_radius_; py <= p_radius_; ++py) {
@@ -119,33 +131,33 @@ void GreenOperator::precompute_energy_consistent_tensor() {
                     const long long my = static_cast<long long>(kj) + static_cast<long long>(py) * static_cast<long long>(ny);
                     const long long mz = static_cast<long long>(kk) + static_cast<long long>(pz) * static_cast<long long>(nz);
 
-                    const double sx = sinc(kPi * static_cast<double>(mx) / static_cast<double>(nx));
-                    const double sy = sinc(kPi * static_cast<double>(my) / static_cast<double>(ny));
-                    const double sz = sinc(kPi * static_cast<double>(mz) / static_cast<double>(nz));
-                    const double weight = (sx * sx) * (sy * sy) * (sz * sz);
-                    if (weight == 0.0) {
+                    const Scalar sx = sinc(Scalar(kPi) * static_cast<Scalar>(mx) / static_cast<Scalar>(nx));
+                    const Scalar sy = sinc(Scalar(kPi) * static_cast<Scalar>(my) / static_cast<Scalar>(ny));
+                    const Scalar sz = sinc(Scalar(kPi) * static_cast<Scalar>(mz) / static_cast<Scalar>(nz));
+                    const Scalar weight = (sx * sx) * (sy * sy) * (sz * sz);
+                    if (weight == Scalar(0)) {
                         continue;
                     }
 
-                    const double qx = q_component(mx, grid_.lx());
-                    const double qy = q_component(my, grid_.ly());
-                    const double qz = q_component(mz, grid_.lz());
-                    const double q2 = qx * qx + qy * qy + qz * qz;
-                    if (q2 <= std::numeric_limits<double>::epsilon()) {
+                    const Scalar qx = q_component(mx, grid_.lx());
+                    const Scalar qy = q_component(my, grid_.ly());
+                    const Scalar qz = q_component(mz, grid_.lz());
+                    const Scalar q2 = qx * qx + qy * qy + qz * qz;
+                    if (q2 <= std::numeric_limits<Scalar>::epsilon()) {
                         continue;
                     }
 
-                    const double inv_mu_q2 = 1.0 / (viscosity_ * q2);
-                    const double inv_q2 = 1.0 / q2;
+                    const Scalar inv_mu_q2 = Scalar(1) / (viscosity_ * q2);
+                    const Scalar inv_q2 = Scalar(1) / q2;
 
-                    const double p11 = 1.0 - qx * qx * inv_q2;
-                    const double p12 = -qx * qy * inv_q2;
-                    const double p13 = -qx * qz * inv_q2;
-                    const double p22 = 1.0 - qy * qy * inv_q2;
-                    const double p23 = -qy * qz * inv_q2;
-                    const double p33 = 1.0 - qz * qz * inv_q2;
+                    const Scalar p11 = Scalar(1) - qx * qx * inv_q2;
+                    const Scalar p12 = -qx * qy * inv_q2;
+                    const Scalar p13 = -qx * qz * inv_q2;
+                    const Scalar p22 = Scalar(1) - qy * qy * inv_q2;
+                    const Scalar p23 = -qy * qz * inv_q2;
+                    const Scalar p33 = Scalar(1) - qz * qz * inv_q2;
 
-                    const double fac = weight * inv_mu_q2;
+                    const Scalar fac = weight * inv_mu_q2;
                     gxx += fac * p11;
                     gxy += fac * p12;
                     gxz += fac * p13;
@@ -166,7 +178,7 @@ void GreenOperator::precompute_energy_consistent_tensor() {
 }
 
 bool GreenOperator::has_nan_in_tensor() const noexcept {
-    const auto is_bad = [](double v) {
+    const auto is_bad = [](Scalar v) {
         return !std::isfinite(v);
     };
     for (std::size_t i = 0; i < spectral_tensor_xx_.size(); ++i) {
@@ -179,7 +191,7 @@ bool GreenOperator::has_nan_in_tensor() const noexcept {
     return false;
 }
 
-std::array<double, 6> GreenOperator::tensor_components(std::size_t idx) const {
+std::array<Scalar, 6> GreenOperator::tensor_components(std::size_t idx) const {
     if (idx >= spectral_tensor_xx_.size()) {
         throw std::out_of_range("GreenOperator::tensor_components index out of range");
     }

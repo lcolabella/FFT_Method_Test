@@ -10,8 +10,8 @@ namespace permeability {
 
 namespace {
 
-double dot(const std::vector<double>& a, const std::vector<double>& b) {
-    double s = 0.0;
+Scalar dot(const std::vector<Scalar>& a, const std::vector<Scalar>& b) {
+    Scalar s = Scalar(0);
 #ifdef PERMEABILITY_USE_OPENMP
 #pragma omp parallel for reduction(+:s)
 #endif
@@ -21,11 +21,11 @@ double dot(const std::vector<double>& a, const std::vector<double>& b) {
     return s;
 }
 
-double norm2(const std::vector<double>& v) {
-    return std::sqrt(std::max(0.0, dot(v, v)));
+Scalar norm2(const std::vector<Scalar>& v) {
+    return std::sqrt(std::max(Scalar(0), dot(v, v)));
 }
 
-void axpy(double a, const std::vector<double>& x, std::vector<double>& y) {
+void axpy(Scalar a, const std::vector<Scalar>& x, std::vector<Scalar>& y) {
 #ifdef PERMEABILITY_USE_OPENMP
 #pragma omp parallel for
 #endif
@@ -36,16 +36,18 @@ void axpy(double a, const std::vector<double>& x, std::vector<double>& y) {
 
 }  // namespace
 
-MinresSolver::MinresSolver(double tolerance, std::size_t max_iterations)
+MinresSolver::MinresSolver(Scalar tolerance, std::size_t max_iterations)
     : tolerance_(tolerance), max_iterations_(max_iterations) {
-    if (tolerance_ <= 0.0) {
+    if (tolerance_ <= Scalar(0)) {
         throw std::invalid_argument("MinresSolver tolerance must be positive");
     }
 }
 
 SolverResult MinresSolver::solve(const ILinearOperator& op,
-                                 const std::vector<double>& rhs,
-                                 const std::vector<double>& initial_guess) const {
+                                 const std::vector<Scalar>& rhs,
+                                 const std::vector<Scalar>& initial_guess,
+                                 int progress_interval,
+                                 ProgressCallback progress_callback) const {
     const std::size_t n = op.size();
     if (rhs.size() != n) {
         throw std::invalid_argument("MinresSolver::solve rhs size mismatch");
@@ -55,13 +57,13 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
     }
 
     // Working vectors (allocated once, reused in all iterations).
-    std::vector<double> x(n, 0.0);
-    std::vector<double> v_old(n, 0.0);
-    std::vector<double> v(n, 0.0);
-    std::vector<double> z(n, 0.0);
-    std::vector<double> w_prev(n, 0.0);
-    std::vector<double> w(n, 0.0);
-    std::vector<double> w_next(n, 0.0);
+    std::vector<Scalar> x(n, Scalar(0));
+    std::vector<Scalar> v_old(n, Scalar(0));
+    std::vector<Scalar> v(n, Scalar(0));
+    std::vector<Scalar> z(n, Scalar(0));
+    std::vector<Scalar> w_prev(n, Scalar(0));
+    std::vector<Scalar> w(n, Scalar(0));
+    std::vector<Scalar> w_next(n, Scalar(0));
 
     if (!initial_guess.empty()) {
         x = initial_guess;
@@ -70,16 +72,16 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
     SolverResult result;
     result.solution = x;
 
-    const double rhs_raw_norm = norm2(rhs);
-    if (rhs_raw_norm == 0.0) {
+    const Scalar rhs_raw_norm = norm2(rhs);
+    if (rhs_raw_norm == Scalar(0)) {
         result.converged = true;
         result.iterations = 0;
-        result.final_rel_residual = 0.0;
-        result.residual_history.push_back(0.0);
+        result.final_rel_residual = Scalar(0);
+        result.residual_history.push_back(Scalar(0));
         return result;
     }
 
-    const double rhs_norm = std::max(rhs_raw_norm, std::numeric_limits<double>::min());
+    const Scalar rhs_norm = std::max(rhs_raw_norm, std::numeric_limits<Scalar>::min());
 
     // r0 = b - A*x0, stored in z then normalized to v.
     op.apply(x, z);
@@ -87,12 +89,12 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
         z[i] = rhs[i] - z[i];
     }
 
-    const double beta1 = norm2(z);
-    const double rel0 = beta1 / rhs_norm;
+    const Scalar beta1 = norm2(z);
+    const Scalar rel0 = beta1 / rhs_norm;
     result.residual_history.push_back(rel0);
     result.final_rel_residual = rel0;
 
-    if (rel0 <= tolerance_ || beta1 == 0.0) {
+    if (rel0 <= tolerance_ || beta1 == Scalar(0)) {
         result.converged = true;
         result.iterations = 0;
         result.solution = x;
@@ -102,28 +104,28 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
     for (std::size_t i = 0; i < n; ++i) {
         v[i] = z[i] / beta1;
     }
-    std::fill(v_old.begin(), v_old.end(), 0.0);
-    std::fill(w_prev.begin(), w_prev.end(), 0.0);
-    std::fill(w.begin(), w.end(), 0.0);
-    std::fill(w_next.begin(), w_next.end(), 0.0);
+    std::fill(v_old.begin(), v_old.end(), Scalar(0));
+    std::fill(w_prev.begin(), w_prev.end(), Scalar(0));
+    std::fill(w.begin(), w.end(), Scalar(0));
+    std::fill(w_next.begin(), w_next.end(), Scalar(0));
 
-    double beta = beta1;
+    Scalar beta = beta1;
 
-    double cs_old = -1.0;
-    double sn_old = 0.0;
-    double cs = -1.0;
-    double sn = 0.0;
-    double phi_bar = beta1;
+    Scalar cs_old = Scalar(-1);
+    Scalar sn_old = Scalar(0);
+    Scalar cs = Scalar(-1);
+    Scalar sn = Scalar(0);
+    Scalar phi_bar = beta1;
 
-    constexpr double kBreakdownEps = 1e-14;
-    double rel_res = rel0;
+    constexpr Scalar kBreakdownEps = static_cast<Scalar>(1e-14);
+    Scalar rel_res = rel0;
 
     for (std::size_t k = 0; k < max_iterations_; ++k) {
         // 1) z = A*v
         op.apply(v, z);
 
         // 2) alpha = dot(v, z)
-        const double alpha = dot(v, z);
+        const Scalar alpha = dot(v, z);
 
         // 3) z -= alpha*v; z -= beta*v_old
         for (std::size_t i = 0; i < n; ++i) {
@@ -131,7 +133,7 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
         }
 
         // 4) beta_new = ||z||
-        const double beta_new = norm2(z);
+        const Scalar beta_new = norm2(z);
 
         // 5) v_old = v; v = z / beta_new
         v_old = v;
@@ -144,16 +146,16 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
         }
 
         // 6) Apply old/current Givens.
-        const double eps = sn_old * beta;
-        const double delta_raw = -cs_old * beta;               // dbar in Paige-Saunders
-        const double delta     = cs * delta_raw + sn * alpha;  // off-diagonal entry of R
-        const double phi       = sn * delta_raw - cs * alpha;  // epln_bar: pre-rotation diagonal
+        const Scalar eps = sn_old * beta;
+        const Scalar delta_raw = -cs_old * beta;               // dbar in Paige-Saunders
+        const Scalar delta     = cs * delta_raw + sn * alpha;  // off-diagonal entry of R
+        const Scalar phi       = sn * delta_raw - cs * alpha;  // epln_bar: pre-rotation diagonal
 
         // 7) New Givens to eliminate beta_new.
-        const double rho = std::hypot(phi, beta_new);
+        const Scalar rho = std::hypot(phi, beta_new);
 
-        double cs_new = 1.0;
-        double sn_new = 0.0;
+        Scalar cs_new = Scalar(1);
+        Scalar sn_new = Scalar(0);
         if (rho > kBreakdownEps) {
             cs_new = phi / rho;
             sn_new = beta_new / rho;
@@ -188,6 +190,11 @@ SolverResult MinresSolver::solve(const ILinearOperator& op,
         result.residual_history.push_back(rel_res);
         result.final_rel_residual = rel_res;
         result.iterations = k + 1;
+
+        if (progress_interval > 0 && progress_callback &&
+            (k + 1) % static_cast<std::size_t>(progress_interval) == 0) {
+            progress_callback(k + 1, rel_res);
+        }
 
         if (rel_res <= tolerance_) {
             result.converged = true;

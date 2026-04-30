@@ -31,8 +31,8 @@ VectorField3D BackgroundForce::build(const Real3& macroscopic_gradient) const {
         return f0;
     }
 
-    const double c_fluid = -1.0;
-    const double c_support = -static_cast<double>(nf) / static_cast<double>(nb);
+    const Scalar c_fluid = Scalar(-1);
+    const Scalar c_support = -static_cast<Scalar>(nf) / static_cast<Scalar>(nb);
 
 #ifdef PERMEABILITY_USE_OPENMP
 #pragma omp parallel for

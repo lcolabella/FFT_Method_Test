@@ -14,7 +14,7 @@ public:
                    GreenOperator& green,
                    const BackgroundForce& background_force);
 
-    [[nodiscard]] std::vector<double> build(const Real3& macroscopic_gradient) const;
+    [[nodiscard]] std::vector<Scalar> build(const Real3& macroscopic_gradient) const;
 
 private:
     const ForceSupport* support_;

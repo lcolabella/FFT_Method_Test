@@ -6,7 +6,7 @@
 
 namespace permeability {
 
-PermeabilityTensor::PermeabilityTensor() : k_{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0} {}
+PermeabilityTensor::PermeabilityTensor() : k_{} {}
 
 void PermeabilityTensor::set_column(std::size_t column, const Real3& avg_velocity) {
     if (column >= 3) {
@@ -17,14 +17,12 @@ void PermeabilityTensor::set_column(std::size_t column, const Real3& avg_velocit
     }
 }
 
-std::string PermeabilityTensor::to_string() const {
+std::string PermeabilityTensor::to_string(const std::string& indent) const {
     std::ostringstream oss;
-    oss << std::setprecision(10);
+    oss << std::scientific << std::setprecision(6);
     for (std::size_t r = 0; r < 3; ++r) {
-        oss << k_[3 * r + 0] << " " << k_[3 * r + 1] << " " << k_[3 * r + 2];
-        if (r + 1 < 3) {
-            oss << "\n";
-        }
+        if (r > 0) oss << "\n" << indent;
+        oss << k_[3 * r + 0] << "  " << k_[3 * r + 1] << "  " << k_[3 * r + 2];
     }
     return oss.str();
 }

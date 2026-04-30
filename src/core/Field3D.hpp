@@ -11,7 +11,7 @@
 
 namespace permeability {
 
-using ScalarField3D = Array3D<double>;
+using ScalarField3D = Array3D<Scalar>;
 
 class VectorField3D {
 public:
@@ -28,17 +28,17 @@ public:
     [[nodiscard]] const ScalarField3D& y() const noexcept { return y_; }
     [[nodiscard]] const ScalarField3D& z() const noexcept { return z_; }
 
-    void fill(double value) {
+    void fill(Scalar value) {
         x_.fill(value);
         y_.fill(value);
         z_.fill(value);
     }
 
     void fill_zero() {
-        fill(0.0);
+        fill(Scalar(0));
     }
 
-    void scale(double a) {
+    void scale(Scalar a) {
         for (std::size_t i = 0; i < size(); ++i) {
             x_[i] *= a;
             y_[i] *= a;
@@ -46,7 +46,7 @@ public:
         }
     }
 
-    void axpy(double a, const VectorField3D& other) {
+    void axpy(Scalar a, const VectorField3D& other) {
         ensure_same_grid(other);
         for (std::size_t i = 0; i < size(); ++i) {
             x_[i] += a * other.x_[i];
@@ -56,7 +56,7 @@ public:
     }
 
     [[nodiscard]] Real3 mean_on_indices(const std::vector<std::size_t>& indices) const {
-        Real3 m{0.0, 0.0, 0.0};
+        Real3 m{Scalar(0), Scalar(0), Scalar(0)};
         if (indices.empty()) {
             return m;
         }
@@ -65,7 +65,7 @@ public:
             m[1] += y_[idx];
             m[2] += z_[idx];
         }
-        const double inv = 1.0 / static_cast<double>(indices.size());
+        const Scalar inv = Scalar(1) / static_cast<Scalar>(indices.size());
         m[0] *= inv;
         m[1] *= inv;
         m[2] *= inv;
@@ -73,7 +73,7 @@ public:
     }
 
     [[nodiscard]] Real3 mean_over_all() const {
-        Real3 m{0.0, 0.0, 0.0};
+        Real3 m{Scalar(0), Scalar(0), Scalar(0)};
         if (size() == 0) {
             return m;
         }
@@ -82,15 +82,15 @@ public:
             m[1] += y_[i];
             m[2] += z_[i];
         }
-        const double inv = 1.0 / static_cast<double>(size());
+        const Scalar inv = Scalar(1) / static_cast<Scalar>(size());
         m[0] *= inv;
         m[1] *= inv;
         m[2] *= inv;
         return m;
     }
 
-    [[nodiscard]] double norm2() const {
-        double s = 0.0;
+    [[nodiscard]] Scalar norm2() const {
+        Scalar s = Scalar(0);
         for (std::size_t i = 0; i < size(); ++i) {
             s += x_[i] * x_[i] + y_[i] * y_[i] + z_[i] * z_[i];
         }
@@ -116,31 +116,31 @@ private:
 class ComplexVectorField3D {
 public:
     explicit ComplexVectorField3D(const Grid3D& grid)
-        : x_(grid, std::complex<double>(0.0, 0.0)),
-          y_(grid, std::complex<double>(0.0, 0.0)),
-          z_(grid, std::complex<double>(0.0, 0.0)) {}
+        : x_(grid, ScalarComplex(0, 0)),
+          y_(grid, ScalarComplex(0, 0)),
+          z_(grid, ScalarComplex(0, 0)) {}
 
     [[nodiscard]] const Grid3D& grid() const noexcept { return x_.grid(); }
     [[nodiscard]] std::size_t size() const noexcept { return x_.size(); }
 
-    [[nodiscard]] Array3D<std::complex<double>>& x() noexcept { return x_; }
-    [[nodiscard]] Array3D<std::complex<double>>& y() noexcept { return y_; }
-    [[nodiscard]] Array3D<std::complex<double>>& z() noexcept { return z_; }
-    [[nodiscard]] const Array3D<std::complex<double>>& x() const noexcept { return x_; }
-    [[nodiscard]] const Array3D<std::complex<double>>& y() const noexcept { return y_; }
-    [[nodiscard]] const Array3D<std::complex<double>>& z() const noexcept { return z_; }
+    [[nodiscard]] Array3D<ScalarComplex>& x() noexcept { return x_; }
+    [[nodiscard]] Array3D<ScalarComplex>& y() noexcept { return y_; }
+    [[nodiscard]] Array3D<ScalarComplex>& z() noexcept { return z_; }
+    [[nodiscard]] const Array3D<ScalarComplex>& x() const noexcept { return x_; }
+    [[nodiscard]] const Array3D<ScalarComplex>& y() const noexcept { return y_; }
+    [[nodiscard]] const Array3D<ScalarComplex>& z() const noexcept { return z_; }
 
-    void fill(std::complex<double> value) {
+    void fill(ScalarComplex value) {
         x_.fill(value);
         y_.fill(value);
         z_.fill(value);
     }
 
     void fill_zero() {
-        fill(std::complex<double>(0.0, 0.0));
+        fill(ScalarComplex(0, 0));
     }
 
-    void scale(double alpha) {
+    void scale(Scalar alpha) {
         for (std::size_t i = 0; i < size(); ++i) {
             x_[i] *= alpha;
             y_[i] *= alpha;
@@ -148,7 +148,7 @@ public:
         }
     }
 
-    void axpy(double alpha, const ComplexVectorField3D& other) {
+    void axpy(Scalar alpha, const ComplexVectorField3D& other) {
         if (size() != other.size()) {
             throw std::invalid_argument("ComplexVectorField3D grid mismatch");
         }
@@ -159,8 +159,8 @@ public:
         }
     }
 
-    [[nodiscard]] double norm2() const {
-        double s = 0.0;
+    [[nodiscard]] Scalar norm2() const {
+        Scalar s = Scalar(0);
         for (std::size_t i = 0; i < size(); ++i) {
             s += std::norm(x_[i]) + std::norm(y_[i]) + std::norm(z_[i]);
         }
@@ -168,9 +168,9 @@ public:
     }
 
     [[nodiscard]] Complex3 mean_componentwise() const {
-        Complex3 m{std::complex<double>(0.0, 0.0),
-                   std::complex<double>(0.0, 0.0),
-                   std::complex<double>(0.0, 0.0)};
+        Complex3 m{ScalarComplex(0, 0),
+                   ScalarComplex(0, 0),
+                   ScalarComplex(0, 0)};
         if (size() == 0) {
             return m;
         }
@@ -179,7 +179,7 @@ public:
             m[1] += y_[i];
             m[2] += z_[i];
         }
-        const double inv = 1.0 / static_cast<double>(size());
+        const Scalar inv = Scalar(1) / static_cast<Scalar>(size());
         m[0] *= inv;
         m[1] *= inv;
         m[2] *= inv;
@@ -187,9 +187,9 @@ public:
     }
 
 private:
-    Array3D<std::complex<double>> x_;
-    Array3D<std::complex<double>> y_;
-    Array3D<std::complex<double>> z_;
+    Array3D<ScalarComplex> x_;
+    Array3D<ScalarComplex> y_;
+    Array3D<ScalarComplex> z_;
 };
 
 }  // namespace permeability

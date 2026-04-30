@@ -1,4 +1,4 @@
-#include "common/MaterialDatabase.hpp"
+#include "materials/MaterialDatabase.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -122,6 +122,10 @@ MaterialDatabase MaterialDatabase::read(const std::string& filePath) {
     return db;
 }
 
+void MaterialDatabase::insert(std::uint32_t materialId, MaterialProperties props) {
+    materials_[materialId] = std::move(props);
+}
+
 bool MaterialDatabase::has(std::uint32_t materialId) const {
     return materials_.find(materialId) != materials_.end();
 }
@@ -135,6 +139,9 @@ const MaterialProperties& MaterialDatabase::at(std::uint32_t materialId) const {
 }
 
 bool MaterialDatabase::hasTag(std::uint32_t materialId, const std::string& key) const {
+    if (!has(materialId)) {
+        return false;
+    }
     const auto& props = at(materialId);
     return props.tags.find(toLower(key)) != props.tags.end();
 }

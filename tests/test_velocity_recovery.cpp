@@ -27,20 +27,20 @@ int main() {
     permeability::BackgroundForce bg(medium, support);
     permeability::VelocityRecovery recovery(support, green, bg);
 
-    std::vector<double> x(3 * support.num_active_voxels(), 0.0);
+    std::vector<permeability::Scalar> x(3 * support.num_active_voxels(), permeability::Scalar(0));
     for (std::size_t n = 0; n < support.num_active_voxels(); ++n) {
-        x[3 * n + 0] = 0.1 * static_cast<double>(n + 1);
-        x[3 * n + 1] = -0.05 * static_cast<double>(n + 2);
-        x[3 * n + 2] = 0.03 * static_cast<double>(n + 3);
+        x[3 * n + 0] = static_cast<permeability::Scalar>(0.1 * static_cast<double>(n + 1));
+        x[3 * n + 1] = static_cast<permeability::Scalar>(-0.05 * static_cast<double>(n + 2));
+        x[3 * n + 2] = static_cast<permeability::Scalar>(0.03 * static_cast<double>(n + 3));
     }
 
     const permeability::Real3 g{1.0, 0.0, 0.0};
     permeability::VectorField3D v = recovery.recover(g, x);
 
     const permeability::Real3 mean_support = recovery.average_over_support(v);
-    assert(std::abs(mean_support[0]) < 1e-8);
-    assert(std::abs(mean_support[1]) < 1e-8);
-    assert(std::abs(mean_support[2]) < 1e-8);
+    assert(std::abs(mean_support[0]) < 1e-4);
+    assert(std::abs(mean_support[1]) < 1e-4);
+    assert(std::abs(mean_support[2]) < 1e-4);
 
     for (std::size_t i = 0; i < v.size(); ++i) {
         assert(std::isfinite(v.x()[i]));

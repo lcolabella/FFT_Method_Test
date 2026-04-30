@@ -26,23 +26,23 @@ int main() {
     permeability::VariationalRHS rhs_builder(support, green, bg);
 
     const permeability::Real3 g{1.0, 0.0, 0.0};
-    const std::vector<double> b1 = rhs_builder.build(g);
-    const std::vector<double> b2 = rhs_builder.build(g);
+    const std::vector<permeability::Scalar> b1 = rhs_builder.build(g);
+    const std::vector<permeability::Scalar> b2 = rhs_builder.build(g);
 
     assert(b1.size() == 3 * support.num_active_voxels());
     assert(b1.size() == b2.size());
 
     for (std::size_t i = 0; i < b1.size(); ++i) {
-        assert(std::abs(b1[i] - b2[i]) < 1e-12);
+        assert(std::abs(b1[i] - b2[i]) < 1e-5f);
     }
 
     for (std::size_t comp = 0; comp < 3; ++comp) {
         double m = 0.0;
         for (std::size_t n = 0; n < support.num_active_voxels(); ++n) {
-            m += b1[3 * n + comp];
+            m += static_cast<double>(b1[3 * n + comp]);
         }
         m /= static_cast<double>(support.num_active_voxels());
-        assert(std::abs(m) < 1e-10);
+        assert(std::abs(m) < 1e-5);
     }
 
     return 0;

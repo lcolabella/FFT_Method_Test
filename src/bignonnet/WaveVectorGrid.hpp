@@ -4,16 +4,17 @@
 #include <vector>
 
 #include "core/Grid3D.hpp"
+#include "core/Types.hpp"
 
 namespace permeability {
 
 class WaveVectorGrid {
 public:
     struct Components {
-        double kx;
-        double ky;
-        double kz;
-        double k2;
+        Scalar kx;
+        Scalar ky;
+        Scalar kz;
+        Scalar k2;
     };
 
     explicit WaveVectorGrid(Grid3D grid);
@@ -24,21 +25,21 @@ public:
     }
 
     [[nodiscard]] const Grid3D& grid() const noexcept { return grid_; }
-    [[nodiscard]] double kx(std::size_t idx) const noexcept { return kx_[idx]; }
-    [[nodiscard]] double ky(std::size_t idx) const noexcept { return ky_[idx]; }
-    [[nodiscard]] double kz(std::size_t idx) const noexcept { return kz_[idx]; }
-    [[nodiscard]] double norm2(std::size_t idx) const noexcept { return norm2_[idx]; }
-    [[nodiscard]] bool is_zero_mode(std::size_t idx) const noexcept { return norm2_[idx] == 0.0; }
+    [[nodiscard]] Scalar kx(std::size_t idx) const noexcept { return kx_[idx]; }
+    [[nodiscard]] Scalar ky(std::size_t idx) const noexcept { return ky_[idx]; }
+    [[nodiscard]] Scalar kz(std::size_t idx) const noexcept { return kz_[idx]; }
+    [[nodiscard]] Scalar norm2(std::size_t idx) const noexcept { return norm2_[idx]; }
+    [[nodiscard]] bool is_zero_mode(std::size_t idx) const noexcept { return norm2_[idx] == Scalar(0); }
     [[nodiscard]] Components components(std::size_t idx) const noexcept {
         return Components{kx_[idx], ky_[idx], kz_[idx], norm2_[idx]};
     }
 
 private:
     Grid3D grid_;
-    std::vector<double> kx_;
-    std::vector<double> ky_;
-    std::vector<double> kz_;
-    std::vector<double> norm2_;
+    std::vector<Scalar> kx_;
+    std::vector<Scalar> ky_;
+    std::vector<Scalar> kz_;
+    std::vector<Scalar> norm2_;
 };
 
 }  // namespace permeability

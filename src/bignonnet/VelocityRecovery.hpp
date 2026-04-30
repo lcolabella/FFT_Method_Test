@@ -17,7 +17,7 @@ public:
                      const BackgroundForce& background_force);
 
     [[nodiscard]] VectorField3D recover(const Real3& macroscopic_gradient,
-                                        const std::vector<double>& compact_solution) const;
+                                        const std::vector<Scalar>& compact_solution) const;
 
     [[nodiscard]] Real3 average_over_domain(const VectorField3D& velocity) const;
     [[nodiscard]] Real3 average_over_support(const VectorField3D& velocity) const;

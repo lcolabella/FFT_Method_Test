@@ -1,4 +1,4 @@
-#include "common/FluidBrinkman.hpp"
+#include "brinkman/FluidBrinkman.hpp"
 
 #include <algorithm>
 #include <array>
@@ -17,7 +17,7 @@
 #include <utility>
 #include <vector>
 
-#include "common/Logger.hpp"
+#include "logging/Logger.hpp"
 
 namespace {
 
@@ -257,6 +257,10 @@ std::array<double, 3> computeSuperficialVelocity(const common::fluid::VelocityFi
     return avg;
 }
 
+bool isFinite3(const std::array<double, 3>& v) {
+    return std::isfinite(v[0]) && std::isfinite(v[1]) && std::isfinite(v[2]);
+}
+
 void writeRaw(std::ofstream& out, const void* data, std::size_t bytes) {
     out.write(reinterpret_cast<const char*>(data), static_cast<std::streamsize>(bytes));
     if (!out) {
@@ -466,6 +470,12 @@ SolveResult solveBrinkman(
         result.diagnostics.elapsedSeconds = std::chrono::duration<double>(
             std::chrono::steady_clock::now() - start).count();
 
+        if (!std::isfinite(result.diagnostics.residual)) {
+            throw std::runtime_error(
+                "Brinkman solver became unstable: non-finite residual at iteration " +
+                std::to_string(result.diagnostics.iterations));
+        }
+
         if (config.fluid.progressInterval > 0 &&
             ((result.diagnostics.iterations % config.fluid.progressInterval) == 0 ||
              result.diagnostics.iterations == config.fluid.maxIterations)) {
@@ -489,6 +499,10 @@ SolveResult solveBrinkman(
 
     result.componentDiagnostics = {result.diagnostics, result.diagnostics, result.diagnostics};
     result.superficialVelocity = computeSuperficialVelocity(result.velocity);
+    if (!isFinite3(result.superficialVelocity)) {
+        throw std::runtime_error(
+            "Brinkman solver produced non-finite macroscopic velocity");
+    }
     return result;
 }
 

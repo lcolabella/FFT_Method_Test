@@ -16,7 +16,7 @@ std::size_t VariationalOperator::size() const {
     return support_->size();
 }
 
-void VariationalOperator::apply(const std::vector<double>& in, std::vector<double>& out) const {
+void VariationalOperator::apply(const std::vector<Scalar>& in, std::vector<Scalar>& out) const {
     if (in.size() != size()) {
         throw std::invalid_argument("VariationalOperator::apply input size mismatch");
     }

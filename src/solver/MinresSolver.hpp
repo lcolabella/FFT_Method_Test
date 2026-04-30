@@ -1,8 +1,10 @@
 #pragma once
 
 #include <cstddef>
+#include <functional>
 #include <vector>
 
+#include "core/Types.hpp"
 #include "solver/ILinearOperator.hpp"
 #include "solver/SolverResult.hpp"
 
@@ -10,15 +12,20 @@ namespace permeability {
 
 class MinresSolver {
 public:
+    // Callback invoked every progress_interval iterations: (iteration, relative_residual).
+    using ProgressCallback = std::function<void(std::size_t, Scalar)>;
+
     // MINRES for symmetric (possibly semidefinite) matrix-free operators.
-    MinresSolver(double tolerance, std::size_t max_iterations);
+    MinresSolver(Scalar tolerance, std::size_t max_iterations);
 
     [[nodiscard]] SolverResult solve(const ILinearOperator& op,
-                                     const std::vector<double>& rhs,
-                                     const std::vector<double>& initial_guess = {}) const;
+                                     const std::vector<Scalar>& rhs,
+                                     const std::vector<Scalar>& initial_guess = {},
+                                     int progress_interval = 0,
+                                     ProgressCallback progress_callback = {}) const;
 
 private:
-    double tolerance_;
+    Scalar tolerance_;
     std::size_t max_iterations_;
 };
 
